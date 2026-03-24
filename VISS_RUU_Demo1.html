@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="VISS">
+  <meta name="theme-color" content="#4455da">
+  <title>VISS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                   "Helvetica Neue", sans-serif;
+      background: #1c1c1e;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .phone-shell {
+      width: 375px;
+      height: 812px;
+      border-radius: 54px;
+      background: linear-gradient(160deg, #d0d0d8, #8e8e96);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.15) inset,
+        0 30px 80px rgba(0,0,0,0.6),
+        0 0 0 10px #1a1a1a;
+      padding: 14px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .phone-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 44px;
+      background: #f2f2f7;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dynamic-island {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 34px;
+      background: #000;
+      border-radius: 20px;
+      z-index: 100;
+    }
+
+    .status-bar {
+      height: 52px;
+      padding: 14px 28px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 15px;
+      font-weight: 600;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+    }
+
+    .status-bar-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .signal-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 12px;
+    }
+
+    .signal-bars span {
+      width: 3px;
+      background: #000;
+      border-radius: 1px;
+    }
+
+    .signal-bars span:nth-child(1) { height: 4px; }
+    .signal-bars span:nth-child(2) { height: 6px; }
+    .signal-bars span:nth-child(3) { height: 9px; }
+    .signal-bars span:nth-child(4) { height: 12px; opacity: 0.3; }
+
+    .battery-icon {
+      width: 25px;
+      height: 12px;
+      border: 1.5px solid #000;
+      border-radius: 3px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 1.5px;
+    }
+
+    .battery-icon::after {
+      content: '';
+      position: absolute;
+      right: -5px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 6px;
+      background: #000;
+      border-radius: 0 2px 2px 0;
+    }
+
+    .battery-fill {
+      width: 80%;
+      height: 100%;
+      background: #34c759;
+      border-radius: 1px;
+    }
+
+    .screen {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .screen.active { display: flex; }
+
+    .home-indicator {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .home-indicator-bar {
+      width: 134px;
+      height: 5px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 3px;
+    }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 420px) {
+      body { padding: 0; background: #f2f2f7; }
+      .phone-shell {
+        width: 100vw;
+        height: 100svh;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0;
+      }
+      .phone-inner { border-radius: 0; }
+      .dynamic-island { display: none; }
+    }
+
+    /* === TOAST (global) === */
+    .toast {
+      position: absolute;
+      bottom: 50px;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 200;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* === SPLASH === */
+    #screen-splash {
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #1a3a6b 0%, #0a1f3f 100%);
+    }
+
+    .splash-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      animation: fadeInUp 0.8s ease forwards;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .splash-logo { width: 180px; height: auto; }
+
+    .splash-name {
+      font-size: 38px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -1px;
+    }
+
+    .splash-bit-wrap {
+      margin-top: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 240px;
+    }
+
+    .splash-bit-label {
+      font-size: 13px;
+      color: rgba(255,255,255,0.6);
+    }
+
+    .splash-progress-track {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .splash-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #4ade80;
+      border-radius: 2px;
+      transition: width 0.05s linear;
+    }
+
+    .splash-bit-result {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4ade80;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .splash-start-btn {
+      margin-top: 48px;
+      padding: 16px 56px;
+      border-radius: 999px;
+      background: #007aff;
+      color: #fff;
+      font-size: 17px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0,122,255,0.4);
+      font-family: inherit;
+      display: none;
+    }
+
+    .splash-start-btn:active { opacity: 0.75; }
+
+    /* === OPERATION SCREEN === */
+    #screen-operation {
+      background: #f2f2f7;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .op-header {
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .op-header-logo { width: 64px; height: auto; flex-shrink: 0; }
+
+    .op-header-user {
+      font-size: 13px;
+      color: #3c3c43;
+      font-weight: 500;
+      flex: 1;
+    }
+
+    .op-settings-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #e5e5ea;
+      border: none;
+      cursor: pointer;
+      font-size: 17px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .op-settings-btn:active { background: #d1d1d6; }
+
+    .op-content {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .status-indicators { display: flex; gap: 8px; }
+
+    .status-pill {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .status-pill-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #8e8e93;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .status-pill-value {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background 0.4s ease;
+    }
+
+    .status-dot.red    { background: #ff3b30; }
+    .status-dot.yellow { background: #ff9500; }
+    .status-dot.green  { background: #34c759; }
+    .status-dot.orange { background: #ff6b00; }
+
+    @keyframes dotPulse {
+      from { opacity: 1; transform: scale(1); }
+      to   { opacity: 0.4; transform: scale(0.85); }
+    }
+    .status-dot.pulse { animation: dotPulse 0.5s ease infinite alternate; }
+
+    /* === WARNING PANEL === */
+    .warning-panel {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .warning-panel.active {
+      background: #fff5f5;
+      box-shadow: 0 0 0 1.5px #ff3b30, 0 4px 16px rgba(255,59,48,0.15);
+    }
+
+    @keyframes critPulse {
+      from { box-shadow: 0 0 0 1.5px #ff3b30, 0 4px 16px rgba(255,59,48,0.12); }
+      to   { box-shadow: 0 0 0 3px #ff3b30, 0 6px 24px rgba(255,59,48,0.35); }
+    }
+    .warning-panel.critical { animation: critPulse 0.7s ease infinite alternate; }
+
+    .warning-arrow-wrap {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #f2f2f7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 30px;
+      transition: background 0.3s;
+    }
+    .warning-panel.active .warning-arrow-wrap { background: #ffe5e3; }
+
+    .warning-arrow { opacity: 0; transition: opacity 0.3s; }
+    .warning-arrow.visible { opacity: 1; }
+
+    .warning-details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .warning-ttc-label {
+      font-size: 10px;
+      color: #8e8e93;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .warning-ttc-row { display: flex; align-items: baseline; gap: 4px; }
+
+    .warning-ttc-num {
+      font-size: 36px;
+      font-weight: 700;
+      color: #1c1c1e;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      transition: color 0.3s;
+    }
+    .warning-ttc-num.yellow { color: #ff9500; }
+    .warning-ttc-num.red    { color: #ff3b30; }
+
+    .warning-ttc-unit { font-size: 14px; color: #8e8e93; }
+
+    .sev-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #8e8e93;
+      margin-bottom: 4px;
+    }
+
+    .sev-track {
+      height: 6px;
+      background: #e5e5ea;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .sev-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 3px;
+      background: #34c759;
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+
+    /* === GPS MAP === */
+    .map-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 10px 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .map-card-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #8e8e93;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .map-body {
+      position: relative;
+      height: 88px;
+      background: #d8e4ed;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .map-road-v {
+      position: absolute;
+      left: 50%; top: 0; bottom: 0;
+      width: 20px;
+      transform: translateX(-50%);
+      background: #aab8c2;
+    }
+
+    .map-road-h {
+      position: absolute;
+      top: 50%; left: 0; right: 0;
+      height: 20px;
+      transform: translateY(-50%);
+      background: #aab8c2;
+    }
+
+    .map-center {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 20px; height: 20px;
+      transform: translate(-50%,-50%);
+      background: #90a4ae;
+    }
+
+    .map-dot {
+      position: absolute;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      transition: left 0.4s ease, top 0.4s ease, background 0.3s;
+    }
+
+    .map-dot.user    { background: #007aff; }
+    .map-dot.threat  { background: #ff3b30; opacity: 0;
+                       transition: opacity 0.3s, left 0.4s ease, top 0.4s ease; }
+
+    .map-gps-text {
+      margin-top: 6px;
+      font-size: 10px;
+      color: #8e8e93;
+    }
+
+    /* === SCENARIO BUTTONS === */
+    .scenario-btns { display: flex; gap: 8px; }
+
+    .scenario-btn {
+      flex: 1;
+      padding: 10px 4px;
+      border-radius: 12px;
+      background: #ffffff;
+      border: 1.5px solid #e5e5ea;
+      font-size: 12px;
+      font-weight: 600;
+      color: #007aff;
+      cursor: pointer;
+      line-height: 1.3;
+      font-family: inherit;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .scenario-btn:active { background: #f0f0f5; }
+    .scenario-btn.running { background: #007aff; border-color: #007aff; color: #fff; }
+    .scenario-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* === EVENT LOG === */
+    .log-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 10px 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .log-card-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #8e8e93;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .log-body {
+      height: 76px;
+      overflow-y: auto;
+      font-size: 11px;
+      font-family: "SF Mono", "Menlo", monospace;
+      color: #3c3c43;
+      line-height: 1.6;
+    }
+
+    .log-ts  { color: #8e8e93; }
+    .log-msg { color: #1c1c1e; }
+
+    /* === SETTINGS SCREEN === */
+    #screen-settings { background: #f2f2f7; overflow-y: auto; }
+
+    .settings-header {
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .settings-back {
+      background: none; border: none;
+      font-size: 17px; color: #007aff;
+      cursor: pointer; padding: 4px 0;
+      font-family: inherit;
+    }
+
+    .settings-title {
+      font-size: 17px; font-weight: 600; color: #1c1c1e; flex: 1;
+    }
+
+    .settings-content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .settings-group-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #8e8e93;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 8px 4px 4px;
+    }
+
+    .settings-section {
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .settings-row {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .settings-row:last-child { border-bottom: none; }
+
+    .settings-row-lbl { font-size: 15px; color: #1c1c1e; }
+
+    .settings-slider { width: 120px; accent-color: #007aff; }
+
+    .settings-val { font-size: 15px; color: #8e8e93; min-width: 36px; text-align: right; }
+
+    .seg-control {
+      display: flex;
+      background: #e5e5ea;
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .seg-btn {
+      flex: 1;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 500;
+      color: #3c3c43;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .seg-btn.active {
+      background: #fff;
+      color: #1c1c1e;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+
+    .settings-input {
+      border: none; outline: none;
+      text-align: right;
+      font-size: 15px; color: #1c1c1e;
+      background: transparent;
+      width: 150px;
+      font-family: inherit;
+    }
+
+    .settings-select {
+      border: none; outline: none;
+      font-size: 15px; color: #1c1c1e;
+      background: transparent;
+      font-family: inherit;
+    }
+
+    .settings-static { font-size: 13px; color: #8e8e93; }
+    .settings-pass   { font-size: 13px; color: #34c759; font-weight: 600; }
+
+    .save-btn {
+      width: 100%; padding: 15px;
+      border-radius: 12px;
+      background: #007aff; color: #fff;
+      border: none; font-size: 17px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      margin-top: 4px;
+    }
+    .save-btn:active { opacity: 0.75; }
+  </style>
+</head>
+<body>
+  <div class="phone-shell">
+    <div class="dynamic-island"></div>
+    <div class="phone-inner">
+
+      <div class="status-bar">
+        <div class="status-bar-time">9:41</div>
+        <div class="status-bar-icons">
+          <div class="signal-bars">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <span style="font-size:11px;font-weight:600">5G</span>
+          <div class="battery-icon"><div class="battery-fill"></div></div>
+        </div>
+      </div>
+
+      <div id="screen-splash" class="screen active">
+        <div class="splash-wrap">
+          <svg class="splash-logo" viewBox="0 0 153.07 45.35" xmlns="http://www.w3.org/2000/svg">
+            <rect fill="#4455da" x="-3.98" y="-4.31" width="217.41" height="53.85"/>
+            <path fill="#fff" d="m70.54,45.35h-4.29l-7-36.68h6.73l3.15,16.66c.49,2.44.81,5.4,1.14,8.3h.11c1.25-2.84,2.71-5.74,4.02-8.3l8.68-16.66h6.78l-19.32,36.68Z"/>
+            <path fill="#fff" d="m95.11,45.35h-6.84l6.14-36.68h6.84l-6.14,36.68Z"/>
+            <path fill="#fff" d="m124.8,16.12c-1.19-.85-3.58-1.88-6.13-1.88-3.2,0-5.37,1.82-5.75,3.98-.05.23-.05.46-.05.68,0,1.88,1.41,3.13,4.07,4.04,5.15,1.76,8.46,4.72,8.46,9.72,0,.68-.11,1.42-.22,2.22-1.14,6.65-5.86,10.46-13.73,10.46-3.91,0-7.38-1.31-9.22-2.79l.43-6.65c2.66,2.16,5.64,3.3,9.12,3.3s6.08-1.76,6.51-4.49c.05-.34.11-.68.11-1.02,0-2.16-1.36-3.58-4.34-4.55-5.32-1.76-7.92-4.89-7.92-9.21,0-.63.05-1.31.16-1.99.92-5.52,5.26-9.72,12.64-9.72,3.58,0,6.67,1.14,8.03,2.16l-2.17,5.74Z"/>
+            <path fill="#fff" d="m150.9,16.12c-1.19-.85-3.58-1.88-6.13-1.88-3.2,0-5.37,1.82-5.75,3.98-.05.23-.05.46-.05.68,0,1.88,1.41,3.13,4.07,4.04,5.15,1.76,8.46,4.72,8.46,9.72,0,.68-.11,1.42-.22,2.22-1.14,6.65-5.86,10.46-13.73,10.46-3.91,0-7.38-1.31-9.22-2.79l.43-6.65c2.66,2.16,5.64,3.3,9.12,3.3s6.08-1.76,6.51-4.49c.05-.34.11-.68.11-1.02,0-2.16-1.36-3.58-4.34-4.55-5.32-1.76-7.92-4.89-7.92-9.21,0-.63.05-1.31.16-1.99.92-5.52,5.26-9.72,12.64-9.72,3.58,0,6.67,1.14,8.03,2.16l-2.17,5.74Z"/>
+            <path fill="#fff" d="m95.87,0l-1.04,6.2h6.83L102.7,0h-6.83Z"/>
+            <path fill="#fff" d="m8,45.35l3.52-20.12h0c6.18,0,10.32,5.01,9.24,11.19l-1.56,8.92"/>
+            <path fill="#fff" d="m24.08,35.74h0c1.08-6.18,6.97-11.19,13.15-11.19h10.17s-1.96,11.19-1.96,11.19h-21.36Z"/>
+            <path fill="#fff" d="m39.22,2.01l-3.34,19.11h0c-6.18,0-10.32-5.01-9.24-11.19l1.38-7.91"/>
+            <path fill="#fff" d="m23.32,10.61h0c-1.08,6.18-6.97,11.19-13.15,11.19H0s1.96-11.19,1.96-11.19h21.36Z"/>
+            <path fill="#fff" d="m30.26,23.06c-2.99,1.57-5.59,3.9-7.51,6.71-1.18-2.8-3.26-5.04-5.97-6.41,2.98-1.57,5.61-3.92,7.51-6.73,1.18,2.8,3.26,5.04,5.97,6.42Z"/>
+          </svg>
+          <div class="splash-name">VISS</div>
+          <div class="splash-bit-wrap">
+            <div class="splash-bit-label" id="bitLabel">Running BIT...</div>
+            <div class="splash-progress-track">
+              <div class="splash-progress-bar" id="bitProgress"></div>
+            </div>
+            <div class="splash-bit-result" id="bitResult">BIT: PASS ✅</div>
+          </div>
+          <button class="splash-start-btn" id="startBtn" onclick="goToOperation()">Start</button>
+        </div>
+      </div>
+
+      <div id="screen-operation" class="screen">
+        <div class="op-header">
+          <svg class="op-header-logo" viewBox="0 0 153.07 45.35" xmlns="http://www.w3.org/2000/svg">
+            <rect fill="#4455da" x="-3.98" y="-4.31" width="217.41" height="53.85"/>
+            <path fill="#fff" d="m70.54,45.35h-4.29l-7-36.68h6.73l3.15,16.66c.49,2.44.81,5.4,1.14,8.3h.11c1.25-2.84,2.71-5.74,4.02-8.3l8.68-16.66h6.78l-19.32,36.68Z"/>
+            <path fill="#fff" d="m95.11,45.35h-6.84l6.14-36.68h6.84l-6.14,36.68Z"/>
+            <path fill="#fff" d="m124.8,16.12c-1.19-.85-3.58-1.88-6.13-1.88-3.2,0-5.37,1.82-5.75,3.98-.05.23-.05.46-.05.68,0,1.88,1.41,3.13,4.07,4.04,5.15,1.76,8.46,4.72,8.46,9.72,0,.68-.11,1.42-.22,2.22-1.14,6.65-5.86,10.46-13.73,10.46-3.91,0-7.38-1.31-9.22-2.79l.43-6.65c2.66,2.16,5.64,3.3,9.12,3.3s6.08-1.76,6.51-4.49c.05-.34.11-.68.11-1.02,0-2.16-1.36-3.58-4.34-4.55-5.32-1.76-7.92-4.89-7.92-9.21,0-.63.05-1.31.16-1.99.92-5.52,5.26-9.72,12.64-9.72,3.58,0,6.67,1.14,8.03,2.16l-2.17,5.74Z"/>
+            <path fill="#fff" d="m150.9,16.12c-1.19-.85-3.58-1.88-6.13-1.88-3.2,0-5.37,1.82-5.75,3.98-.05.23-.05.46-.05.68,0,1.88,1.41,3.13,4.07,4.04,5.15,1.76,8.46,4.72,8.46,9.72,0,.68-.11,1.42-.22,2.22-1.14,6.65-5.86,10.46-13.73,10.46-3.91,0-7.38-1.31-9.22-2.79l.43-6.65c2.66,2.16,5.64,3.3,9.12,3.3s6.08-1.76,6.51-4.49c.05-.34.11-.68.11-1.02,0-2.16-1.36-3.58-4.34-4.55-5.32-1.76-7.92-4.89-7.92-9.21,0-.63.05-1.31.16-1.99.92-5.52,5.26-9.72,12.64-9.72,3.58,0,6.67,1.14,8.03,2.16l-2.17,5.74Z"/>
+            <path fill="#fff" d="m95.87,0l-1.04,6.2h6.83L102.7,0h-6.83Z"/>
+            <path fill="#fff" d="m8,45.35l3.52-20.12h0c6.18,0,10.32,5.01,9.24,11.19l-1.56,8.92"/>
+            <path fill="#fff" d="m24.08,35.74h0c1.08-6.18,6.97-11.19,13.15-11.19h10.17s-1.96,11.19-1.96,11.19h-21.36Z"/>
+            <path fill="#fff" d="m39.22,2.01l-3.34,19.11h0c-6.18,0-10.32-5.01-9.24-11.19l1.38-7.91"/>
+            <path fill="#fff" d="m23.32,10.61h0c-1.08,6.18-6.97,11.19-13.15,11.19H0s1.96-11.19,1.96-11.19h21.36Z"/>
+            <path fill="#fff" d="m30.26,23.06c-2.99,1.57-5.59,3.9-7.51,6.71-1.18-2.8-3.26-5.04-5.97-6.41,2.98-1.57,5.61-3.92,7.51-6.73,1.18,2.8,3.26,5.04,5.97,6.42Z"/>
+          </svg>
+          <div class="op-header-user" id="opUsername">Guest</div>
+          <button class="op-settings-btn" onclick="goToSettings()">&#9881;&#65039;</button>
+        </div>
+
+        <div class="op-content">
+          <div class="status-indicators">
+            <div class="status-pill">
+              <div class="status-pill-label">COMM</div>
+              <div class="status-pill-value">
+                <div class="status-dot yellow" id="commDot"></div>
+                <span id="commLabel">NO HEARTBEAT</span>
+              </div>
+            </div>
+            <div class="status-pill">
+              <div class="status-pill-label">GPS</div>
+              <div class="status-pill-value">
+                <div class="status-dot red" id="gpsDot"></div>
+                <span id="gpsLabel">NO GPS</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- WARNING PANEL -->
+          <div class="warning-panel" id="warningPanel">
+            <div class="warning-arrow-wrap">
+              <span class="warning-arrow" id="warningArrow" aria-hidden="true">&#11014;&#65039;</span>
+            </div>
+            <div class="warning-details">
+              <div>
+                <div class="warning-ttc-label">Time to Collision</div>
+                <div class="warning-ttc-row">
+                  <span class="warning-ttc-num" id="ttcNum">--</span>
+                  <span class="warning-ttc-unit" id="ttcUnit" style="display:none">s</span>
+                </div>
+              </div>
+              <div>
+                <div class="sev-label-row">
+                  <span>Severity</span>
+                  <span id="sevPct">0%</span>
+                </div>
+                <div class="sev-track"><div class="sev-fill" id="sevFill"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MAP -->
+          <div class="map-card">
+            <div class="map-card-label">Live Location (Simulated GPS)</div>
+            <div class="map-body">
+              <div class="map-road-v"></div>
+              <div class="map-road-h"></div>
+              <div class="map-center"></div>
+              <div class="map-dot user"   id="mapUser"   style="left:10%;top:43%"></div>
+              <div class="map-dot threat" id="mapThreat" style="left:45%;top:8%"></div>
+            </div>
+            <div class="map-gps-text" id="mapGpsText">Waiting for scenario...</div>
+          </div>
+
+          <!-- SCENARIO BUTTONS -->
+          <div class="scenario-btns">
+            <button class="scenario-btn" id="btn1" onclick="runScenario(1)">
+              Scenario 1<br><span style="font-weight:400;font-size:10px">Car vs Car</span>
+            </button>
+            <button class="scenario-btn" id="btn2" onclick="runScenario(2)">
+              Scenario 2<br><span style="font-weight:400;font-size:10px">Courier vs Scooter</span>
+            </button>
+            <button class="scenario-btn" id="btn3" onclick="runScenario(3)">
+              Scenario 3<br><span style="font-weight:400;font-size:10px">Cyclist vs Car</span>
+            </button>
+          </div>
+
+          <!-- EVENT LOG -->
+          <div class="log-card">
+            <div class="log-card-label">Event Log</div>
+            <div class="log-body" id="eventLog"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <div id="screen-settings" class="screen">
+        <div class="settings-header">
+          <button class="settings-back" onclick="saveSettings(); goToOperation()">&#8249; Back</button>
+          <div class="settings-title">Settings</div>
+        </div>
+        <div class="settings-content">
+
+          <div class="settings-group-label">Sound</div>
+          <div class="settings-section">
+            <div class="settings-row">
+              <div class="settings-row-lbl">&#128266; Volume</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" class="settings-slider" id="sVolume"
+                       min="0" max="100" value="70"
+                       oninput="document.getElementById('sVolVal').textContent = this.value + '%'">
+                <span class="settings-val" id="sVolVal">70%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group-label">Alerts</div>
+          <div class="settings-section">
+            <div class="settings-row">
+              <div class="settings-row-lbl">&#9888;&#65039; Sensitivity</div>
+              <div class="seg-control">
+                <button class="seg-btn" id="sLow"  onclick="setSens('low')">Low</button>
+                <button class="seg-btn active" id="sMed" onclick="setSens('medium')">Medium</button>
+                <button class="seg-btn" id="sHigh" onclick="setSens('high')">High</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-lbl">&#128276; Alert Type</div>
+              <div class="seg-control">
+                <button class="seg-btn active" id="sAlertBeep"  onclick="setAlertStyle('beep')">Beep</button>
+                <button class="seg-btn"        id="sAlertVoice" onclick="setAlertStyle('voice')">Voice</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group-label">Status</div>
+          <div class="settings-section">
+            <div class="settings-row">
+              <div class="settings-row-lbl">Version</div>
+              <div class="settings-static">2.1.0</div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-lbl">License</div>
+              <div class="settings-static">Active</div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-lbl">BIT Result</div>
+              <div class="settings-pass">PASS &#9989;</div>
+            </div>
+          </div>
+
+          <div class="settings-group-label">User</div>
+          <div class="settings-section">
+            <div class="settings-row">
+              <div class="settings-row-lbl">Username</div>
+              <input class="settings-input" id="sUsername" type="text" placeholder="Enter username">
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-lbl">User ID</div>
+              <input class="settings-input" id="sUserID" type="text" placeholder="Enter user ID">
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-lbl">Subscription</div>
+              <select class="settings-select" id="sSubscription">
+                <option value="free">Free</option>
+                <option value="standard" selected>Standard</option>
+                <option value="pro">Pro</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="save-btn" onclick="saveSettings(); showToast('Saved \u2705')">Save Changes</button>
+
+        </div>
+      </div>
+
+      <div class="toast" id="toast"></div>
+
+      <div class="home-indicator">
+        <div class="home-indicator-bar"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById('screen-' + id).classList.add('active');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSettingsFromStorage();
+      runBIT();
+    });
+
+    function runBIT() {
+      const bar    = document.getElementById('bitProgress');
+      const label  = document.getElementById('bitLabel');
+      const result = document.getElementById('bitResult');
+      const btn    = document.getElementById('startBtn');
+      let pct = 0;
+      const iv = setInterval(() => {
+        pct += 2;
+        bar.style.width = pct + '%';
+        if (pct >= 100) {
+          clearInterval(iv);
+          label.textContent = 'BIT Complete';
+          result.style.opacity = '1';
+          setTimeout(() => { btn.style.display = 'block'; }, 400);
+        }
+      }, 30);
+    }
+
+    function goToOperation() {
+      showScreen('operation');
+      loadSettingsIntoOperation();
+    }
+
+    function showToast(msg, duration) {
+      duration = duration || 2000;
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), duration);
+    }
+
+    function loadSettingsIntoOperation() {
+      const username = localStorage.getItem('viss_username') || 'Guest';
+      const el = document.getElementById('opUsername');
+      if (el) el.textContent = username;
+    }
+
+    // === TASK 3: COMM / GPS indicators ===
+    const COMM_STATES = {
+      'bit-fail':      { color: 'red',    label: 'BIT FAIL' },
+      'no-hb':         { color: 'yellow', label: 'NO HEARTBEAT' },
+      'hb':            { color: 'green',  label: 'CONNECTED' },
+      'rsu-available': { color: 'orange', label: 'RSU AVAILABLE' },
+    };
+
+    const GPS_STATES = {
+      'no-gps': { color: 'red',    label: 'NO GPS' },
+      'no-nav': { color: 'yellow', label: 'NO NAV' },
+      'nav':    { color: 'green',  label: 'NAV ACTIVE' },
+    };
+
+    function setComm(state, pulse) {
+      const s = COMM_STATES[state] || COMM_STATES['no-hb'];
+      const dot = document.getElementById('commDot');
+      const lbl = document.getElementById('commLabel');
+      dot.className = 'status-dot ' + s.color + (pulse ? ' pulse' : '');
+      lbl.textContent = s.label;
+    }
+
+    function setGPS(state) {
+      const s = GPS_STATES[state] || GPS_STATES['no-gps'];
+      document.getElementById('gpsDot').className = 'status-dot ' + s.color;
+      document.getElementById('gpsLabel').textContent = s.label;
+    }
+
+    function goToSettings() { showScreen('settings'); loadSettingsIntoForm(); }
+
+    // === TASK 4-6: Warning panel, Map, Scenarios, Log ===
+    const ARROWS = { up:'\u2B06\uFE0F', down:'\u2B07\uFE0F', left:'\u2B05\uFE0F', right:'\u27A1\uFE0F' };
+
+    function setWarning(direction, ttc, severity) {
+      currentWarningDir = direction || null;
+      const panel  = document.getElementById('warningPanel');
+      const arrow  = document.getElementById('warningArrow');
+      const ttcEl  = document.getElementById('ttcNum');
+      const unit   = document.getElementById('ttcUnit');
+      const sevPct = document.getElementById('sevPct');
+      const sevFill= document.getElementById('sevFill');
+
+      if (!direction) {
+        panel.className = 'warning-panel';
+        arrow.className = 'warning-arrow';
+        ttcEl.textContent = '--';
+        ttcEl.className = 'warning-ttc-num';
+        unit.style.display = 'none';
+        sevPct.textContent = '0%';
+        sevFill.style.width = '0%';
+        sevFill.style.background = '#34c759';
+        return;
+      }
+
+      const cls = severity >= 90 ? 'warning-panel active critical' : 'warning-panel active';
+      panel.className = cls;
+      arrow.textContent = ARROWS[direction] || '\u2B06\uFE0F';
+      arrow.className = 'warning-arrow visible';
+      ttcEl.textContent = ttc;
+      ttcEl.className = 'warning-ttc-num' + (ttc <= 3 ? ' red' : ttc <= 5 ? ' yellow' : '');
+      unit.style.display = '';
+      sevPct.textContent = severity + '%';
+      sevFill.style.width = severity + '%';
+      sevFill.style.background = severity >= 80 ? '#ff3b30' : severity >= 50 ? '#ff9500' : '#34c759';
+    }
+
+    function setMapDots(uL, uT, tL, tT, tShow) {
+      const u = document.getElementById('mapUser');
+      const t = document.getElementById('mapThreat');
+      u.style.left = uL + '%'; u.style.top = uT + '%';
+      t.style.left = tL + '%'; t.style.top  = tT + '%';
+      t.style.opacity = tShow ? '1' : '0';
+    }
+
+    function resetMap() {
+      setMapDots(10, 43, 45, 8, false);
+      document.getElementById('mapGpsText').textContent = 'Waiting for scenario...';
+    }
+
+    resetMap();
+
+    function logEvent(msg) {
+      const log = document.getElementById('eventLog');
+      const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+      const row = document.createElement('div');
+      const ts  = document.createElement('span');
+      const sp  = document.createTextNode(' ');
+      const txt = document.createElement('span');
+      ts.className  = 'log-ts';
+      txt.className = 'log-msg';
+      ts.textContent  = '[' + now + ']';
+      txt.textContent = msg;
+      row.appendChild(ts); row.appendChild(sp); row.appendChild(txt);
+      log.appendChild(row);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    let scenarioRunning = false;
+    let scenarioTimers = [];
+
+    function setScenarioBtns(runningId) {
+      [1,2,3].forEach(i => {
+        const btn = document.getElementById('btn' + i);
+        btn.disabled = runningId !== null;
+        btn.className = 'scenario-btn' + (i === runningId ? ' running' : '');
+      });
+    }
+
+    function clearTimers() { scenarioTimers.forEach(clearTimeout); scenarioTimers = []; }
+
+    function at(ms, fn) { scenarioTimers.push(setTimeout(fn, ms)); }
+
+    function autoReset() {
+      setComm('no-hb');
+      setGPS('no-gps');
+      setWarning(null);
+      resetMap();
+      setScenarioBtns(null);
+      stopTTC();
+      scenarioRunning = false;
+      showToast('Scenario complete \u2713');
+    }
+
+    function runScenario(n) {
+      if (scenarioRunning) return;
+      if (n === 1) runScenario1();
+      else if (n === 2) runScenario2();
+      else if (n === 3) runScenario3();
+    }
+
+    // === TASK 7: Audio engine + TTC countdown ===
+    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function getCtx() {
+      if (!audioCtx) audioCtx = new AudioCtxClass();
+      return audioCtx;
+    }
+
+    function beep(freq, dur, vol) {
+      try {
+        const ctx  = getCtx();
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq || 880;
+        gain.gain.setValueAtTime((vol || 0.5) * 0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur || 0.15));
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + (dur || 0.15));
+      } catch(e) {}
+    }
+
+    function getVol()        { return parseInt(localStorage.getItem('viss_volume') || '70') / 100; }
+    function getSens()       { return localStorage.getItem('viss_sensitivity') || 'medium'; }
+    function getAlertStyle() { return localStorage.getItem('viss_alert_style') || 'beep'; }
+
+    let currentWarningDir = null;
+
+    const DIR_LABELS = { up: 'Danger ahead', down: 'Danger behind', left: 'Danger left', right: 'Danger right' };
+
+    function speakAlert() {
+      if (!('speechSynthesis' in window)) return;
+      const msg = DIR_LABELS[currentWarningDir] || 'Danger';
+      speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(msg);
+      utt.rate = 1.2;
+      utt.volume = getVol();
+      speechSynthesis.speak(utt);
+    }
+
+    function alertBeep() {
+      if (getAlertStyle() === 'voice') {
+        speakAlert();
+      } else {
+        const sens = getSens();
+        const freq = sens === 'high' ? 1000 : sens === 'low' ? 660 : 880;
+        beep(freq, 0.2, getVol());
+      }
+    }
+
+    function calmBeep() { beep(440, 0.35, getVol() * 0.6); }
+
+    let ttcIv = null;
+
+    function startTTC(start, onTick, onEnd) {
+      let rem = start;
+      onTick(rem);
+      ttcIv = setInterval(() => {
+        rem--;
+        if (rem >= 0) { onTick(rem); alertBeep(); }
+        if (rem <= 0) { clearInterval(ttcIv); ttcIv = null; if (onEnd) onEnd(); }
+      }, 1000);
+    }
+
+    function stopTTC() { if (ttcIv) { clearInterval(ttcIv); ttcIv = null; } }
+
+    // === TASK 8: Scenario 1 — Private Car vs Private Car ===
+    function runScenario1() {
+      setScenarioBtns(1); scenarioRunning = true;
+      clearTimers(); stopTTC();
+      setComm('no-hb'); setGPS('no-nav'); setWarning(null);
+      setMapDots(10, 43, 45, 8, false);
+      document.getElementById('mapGpsText').textContent = 'Vehicle approaching from east...';
+      logEvent('Scenario 1 started: Private car approaching intersection from east');
+
+      at(1000, () => {
+        setComm('hb'); setGPS('nav');
+        logEvent('RSU Heartbeat received \u2014 COMM: CONNECTED, GPS: NAV ACTIVE');
+      });
+
+      at(2500, () => {
+        setMapDots(26, 43, 45, 8, false);
+        logEvent('Vehicle approaching intersection from east');
+      });
+
+      at(3500, () => {
+        setMapDots(36, 43, 45, 20, true);
+        logEvent('Second vehicle detected approaching from north');
+      });
+
+      at(4500, () => {
+        logEvent('WARNING: Predicted collision \u2014 TTC 7s, severity 78%');
+        let sev = 40;
+        setWarning('left', 7, sev);
+        startTTC(7, (rem) => {
+          sev = Math.min(78, 40 + (7 - rem) * 6);
+          setWarning('left', rem, Math.round(sev));
+          const p = (7 - rem) / 7;
+          setMapDots(36 + p * 3, 43, 45, 20 + p * 30, true);
+          document.getElementById('mapGpsText').textContent = 'TTC: ' + rem + 's \u2014 vehicles converging';
+        }, null);
+      });
+
+      at(12000, () => {
+        stopTTC(); setWarning(null);
+        logEvent('Driver slowed \u2014 collision path cancelled');
+        setMapDots(39, 43, 45, 65, false);
+        document.getElementById('mapGpsText').textContent = 'Collision avoided';
+        calmBeep();
+      });
+
+      at(14000, () => { logEvent('Scenario 1 complete \u2014 event recorded'); });
+      at(16000, autoReset);
+    }
+
+    // === TASK 9: Scenario 2 — Courier vs Scooter ===
+    function runScenario2() {
+      setScenarioBtns(2); scenarioRunning = true;
+      clearTimers(); stopTTC();
+      setComm('hb'); setGPS('no-nav'); setWarning(null);
+      setMapDots(10, 43, 78, 43, false);
+      document.getElementById('mapGpsText').textContent = 'Fleet vehicle on delivery route, Zone 3';
+      logEvent('Scenario 2 started: Courier vehicle on last-mile delivery');
+
+      at(1500, () => { logEvent('Fleet vehicle approaching \u2014 GPS: No-Nav'); });
+
+      at(2500, () => { setMapDots(26, 43, 78, 43, false); });
+
+      at(3500, () => {
+        setGPS('nav');
+        logEvent('GPS NAV acquired \u2014 tracking active');
+        setMapDots(36, 43, 70, 43, true);
+        logEvent('Scooter detected approaching from right');
+      });
+
+      at(4500, () => {
+        logEvent('FLEET ALERT: Predicted side collision \u2014 TTC 5s, severity 90%');
+        let sev = 60;
+        setWarning('up', 5, sev);
+        startTTC(5, (rem) => {
+          sev = Math.min(90, 60 + (5 - rem) * 6);
+          setWarning('up', rem, Math.round(sev));
+          const p = (5 - rem) / 5;
+          setMapDots(36 + p * 4, 43, 70 - p * 18, 43, true);
+          document.getElementById('mapGpsText').textContent = 'Fleet event \u2014 TTC: ' + rem + 's | Scooter right';
+        }, null);
+      });
+
+      at(10000, () => {
+        stopTTC(); setWarning(null);
+        logEvent('Courier responded \u2014 scooter collision avoided');
+        logEvent('Fleet event status: RESOLVED \u2014 stored in telematics');
+        setMapDots(40, 43, 54, 43, false);
+        document.getElementById('mapGpsText').textContent = 'Fleet event resolved \u2014 telematics updated';
+        calmBeep();
+      });
+
+      at(12000, () => { logEvent('Scenario 2 complete \u2014 fleet analytics event recorded'); });
+      at(14000, autoReset);
+    }
+
+    // === TASK 10: Scenario 3 — Cyclist vs Left-Turning Vehicle ===
+    function runScenario3() {
+      setScenarioBtns(3); scenarioRunning = true;
+      clearTimers(); stopTTC();
+      setComm('rsu-available'); setGPS('nav'); setWarning(null);
+      setMapDots(45, 43, 10, 43, false);
+      document.getElementById('mapGpsText').textContent = 'Cyclist at intersection \u2014 RSU connecting...';
+      logEvent('Scenario 3 started: Cyclist at intersection');
+      logEvent('COMM: RSU NET available \u2014 connecting...');
+
+      at(1000, () => { setComm('rsu-available', true); });
+
+      at(2200, () => {
+        setComm('hb');
+        logEvent('RSU connection established \u2014 COMM: CONNECTED');
+      });
+
+      at(3200, () => {
+        setMapDots(45, 43, 10, 43, true);
+        logEvent('Cyclist at intersection \u2014 left-turning vehicle detected from west');
+      });
+
+      at(4200, () => {
+        logEvent('CRITICAL ALERT: Left-turn collision \u2014 TTC 3s, severity 95%');
+        let sev = 75;
+        setWarning('up', 3, sev);
+        startTTC(3, (rem) => {
+          sev = Math.min(95, 75 + (3 - rem) * 10);
+          setWarning('up', rem, Math.round(sev));
+          const p = (3 - rem) / 3;
+          setMapDots(45, 43, 10 + p * 22, 43, true);
+          document.getElementById('mapGpsText').textContent = 'CRITICAL \u2014 TTC: ' + rem + 's | Left-turn threat';
+        }, null);
+      });
+
+      at(7500, () => {
+        stopTTC(); setWarning(null);
+        logEvent('Cyclist stopped \u2014 collision avoided');
+        setMapDots(45, 43, 28, 43, false);
+        document.getElementById('mapGpsText').textContent = 'Cyclist stopped \u2014 collision avoided';
+        calmBeep();
+      });
+
+      at(9500, () => { logEvent('Scenario 3 complete \u2014 critical near-miss recorded'); });
+      at(12000, autoReset);
+    }
+
+    // === TASK 11: Settings Screen ===
+    function setSens(val) {
+      const map = { low: 'sLow', medium: 'sMed', high: 'sHigh' };
+      ['sLow','sMed','sHigh'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.classList.remove('active');
+      });
+      const btn = document.getElementById(map[val]);
+      if (btn) btn.classList.add('active');
+      localStorage.setItem('viss_sensitivity', val);
+    }
+
+    function setAlertStyle(val) {
+      ['sAlertBeep','sAlertVoice'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.classList.remove('active');
+      });
+      const map = { beep: 'sAlertBeep', voice: 'sAlertVoice' };
+      const btn = document.getElementById(map[val]);
+      if (btn) btn.classList.add('active');
+      localStorage.setItem('viss_alert_style', val);
+    }
+
+    function loadSettingsFromStorage() {
+      const vol  = localStorage.getItem('viss_volume')       || '70';
+      const sens = localStorage.getItem('viss_sensitivity')  || 'medium';
+      const user = localStorage.getItem('viss_username')     || '';
+      const uid  = localStorage.getItem('viss_userid')       || '';
+      const sub  = localStorage.getItem('viss_subscription') || 'standard';
+
+      const volEl = document.getElementById('sVolume');
+      const volVl = document.getElementById('sVolVal');
+      const alertStyle = localStorage.getItem('viss_alert_style') || 'beep';
+      if (volEl) { volEl.value = vol; }
+      if (volVl) { volVl.textContent = vol + '%'; }
+      setSens(sens);
+      setAlertStyle(alertStyle);
+      const uEl = document.getElementById('sUsername');
+      const iEl = document.getElementById('sUserID');
+      const sEl = document.getElementById('sSubscription');
+      if (uEl) uEl.value = user;
+      if (iEl) iEl.value = uid;
+      if (sEl) sEl.value = sub;
+    }
+
+    function loadSettingsIntoForm() { loadSettingsFromStorage(); }
+
+    function saveSettings() {
+      const vol  = document.getElementById('sVolume')?.value || '70';
+      const user = document.getElementById('sUsername')?.value || 'Guest';
+      const uid  = document.getElementById('sUserID')?.value || '';
+      const sub  = document.getElementById('sSubscription')?.value || 'standard';
+      const sens = localStorage.getItem('viss_sensitivity') || 'medium';
+      localStorage.setItem('viss_volume',       vol);
+      localStorage.setItem('viss_username',     user);
+      localStorage.setItem('viss_userid',       uid);
+      localStorage.setItem('viss_subscription', sub);
+      localStorage.setItem('viss_sensitivity',  sens);
+      loadSettingsIntoOperation();
+    }
+  </script>
+</body>
+</html>
